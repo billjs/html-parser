@@ -1,0 +1,26 @@
+{
+  "name": "html-parser",
+  "version": "1.0.0",
+  "description": "html parser",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/xiaoluoxian/html-parser.git"
+  },
+  "keywords": [
+    "html-parser"
+  ],
+  "author": "luoying",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/xiaoluoxian/html-parser/issues"
+  },
+  "homepage": "https://github.com/xiaoluoxian/html-parser#readme",
+  "devDependencies": {
+    "babel-preset-env": "^1.5.2",
+    "babel-preset-stage-1": "^6.24.1"
+  }
+}
