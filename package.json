@@ -4,7 +4,9 @@
   "description": "html parser",
   "main": "index.js",
   "scripts": {
-    "test": "test"
+    "start": "npm run dev",
+    "dev": "",
+    "eslint": "eslint --ext .js ./ --fix --cache --quiet"
   },
   "repository": {
     "type": "git",
@@ -13,7 +15,7 @@
   "keywords": [
     "html-parser"
   ],
-  "author": "luoying",
+  "author": "billjs",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/billjs/html-parser/issues"
