@@ -56,7 +56,7 @@ const tokenize = (source) => {
       let nextChar = source[i + 1]
       // 非注释标签，分词出来标签open符
       if (nextChar !== '!') {
-        tokens.push({ type: 'angle-bracket', value: char })
+        tokens.push({ type: 'bracket', value: char })
       }
       continue
     }
@@ -70,35 +70,43 @@ const tokenize = (source) => {
 
       // 注释：<!-- -->内的字符串
       if (nextChar === '-') {
-        let ts = tokenizeComments(i, char, source)
-        i = ts.point
-        tokens.push(...ts.tokens)
+        let token = tokenizeComments(i, char, source)
+        i += token.value.length - 2
+        tokens.push(token)
         continue
       }
 
       // CDATA：<![CDATA[ ]]>内的全部字符，包括空白符等特殊字符
       if (nextChar === '[') {
-        let ts = tokenizeCDATAs(i, char, source)
-        i = ts.point
-        tokens.push(...ts.tokens)
+        let token = tokenizeCDATAs(i, char, source)
+        i += token.value.length - 2
+        tokens.push(token)
         continue
       }
 
       // 文档声明：<! >以内的字符串
-      let ts = tokenizeDocDeclarations(i, char, source)
-      i = ts.point
-      tokens.push(...ts.tokens)
+      let token = tokenizeDocDeclarations(i, char, source)
+      i += token.value.length - 2
+      tokens.push(token)
       continue
     }
 
     // 命中标签close符
     if (char === '>') {
-      tokens.push({ type: 'angle-bracket', value: char })
+      tokens.push({ type: 'bracket', value: char })
       let nextChar = source[i + 1]
       // >之后到<之前，紧跟着的是一串文本
-      if (nextChar === '<') {
+      if (nextChar !== '<') {
+        let open = null
+        for (let j = tokens.length - 2; j >=0; j--) {
+          let token = tokens[j]
+          if (token.value === '<') {
+            open = tokens[j + 1]
+            break
+          }
+        }
         // 确定是文本，分词文本
-        let token = tokenizeText(i + 1, source)
+        let token = tokenizeText(i + 1, source, open ? open.value : '')
         i += token.value.length
         tokens.push(token)
       }
@@ -106,7 +114,7 @@ const tokenize = (source) => {
     }
 
     if (char === '[' || char === ']') {
-      tokens.push({ type: 'square-bracket', value: char })
+      tokens.push({ type: 'bracket', value: char })
       continue
     }
 
@@ -130,7 +138,7 @@ const tokenize = (source) => {
 
     // 命中等号，分词等号和字符串（未被引号括起来的字符串）
     if (char === '=') {
-      tokens.push({ type: 'equal-mark', value: char })
+      tokens.push({ type: 'equal', value: char })
 
       let nextChar = source[i + 1]
       if (nextChar !== '"' && nextChar !== '\'') {
@@ -283,25 +291,25 @@ const tokenizeString = (start, startChar, closer, source) => {
 // 注释分词
 // <!-- -->内的字符串
 const tokenizeComments = (start, startChar, source) => {
-  let tokens = []
+  let token = { type: 'comment', value: '' }
   let point = start - 1
 
   let commentStart = source.substr(point, 4)
   // 不能匹配<!--注释开始标识，分词出错
   if (commentStart !== '<!--') throwError(startChar, point)
 
-  tokens.push({ type: 'comment-start', value: commentStart })
+  token.value += commentStart
   point += commentStart.length
 
-  let token = { type: 'comment', value: '' }
-  tokens.push(token)
-
+  let commentEnd = ''
   let end = false
+
   for (point; point < source.length; point++) {
     let char = source[point]
     if (char === '-') {
-      let commentEnd = source.substr(point, 3)
+      commentEnd = source.substr(point, 3)
       if (commentEnd === '-->') {
+        point--
         end = true
         break
       }
@@ -311,33 +319,33 @@ const tokenizeComments = (start, startChar, source) => {
 
   // 无-->注释结束标识，则分词出错
   if (!end) throwError(token.value, point)
-  tokens.push({ type: 'comment-end', value: '-->' })
-  point += 3
 
-  return { tokens, point }
+  token.value += commentEnd
+
+  return token
 }
 
 // CDATA分词
 // <![CDATA[ ]]>内的全部字符，包括空白符等特殊字符
 const tokenizeCDATAs = (start, startChar, source) => {
-  let tokens = []
+  let token = { type: 'cdata', value: '' }
   let point = start - 1
 
   let cdataStart = source.substr(point, 9)
   if (cdataStart !== '<![CDATA[') throwError(cdataStart, point)
 
-  tokens.push({ type: 'cdata-start', value: cdataStart })
+  token.value += cdataStart
   point += cdataStart.length
 
-  let token = { type: 'cdata', value: '' }
-  tokens.push(token)
-
+  let cdataEnd = ''
   let end = false
+
   for (point; point < source.length; point++) {
     let char = source[point]
     if (char === ']') {
-      let cdataEnd = source.substr(point, 3)
+      cdataEnd = source.substr(point, 3)
       if (cdataEnd === ']]>') {
+        point--
         end = true
         break
       }
@@ -346,28 +354,26 @@ const tokenizeCDATAs = (start, startChar, source) => {
   }
 
   if (!end) throwError(token.value, point)
-  tokens.push({ type: 'cdata-end', value: ']]>'})
-  point += 3
 
-  return { tokens, point }
+  token.value += cdataEnd
+
+  return token
 }
 
 // 文档声明分词
 // <! >以内的字符串
 const tokenizeDocDeclarations = (start, startChar, source) => {
-  let tokens = []
+  let token = { type: 'doc-declaration', value: '' }
   let point = start - 1
 
   let declarationStart = source.substr(point, 2)
   if (declarationStart !== '<!') throwError(declarationStart, point)
 
-  tokens.push({ type: 'doc-declaration-start', value: declarationStart })
+  token.value += declarationStart
   point += declarationStart.length
 
-  let token = { type: 'doc-declaration', value: '' }
-  tokens.push(token)
-
   let end = false
+
   for (point; point < source.length; point++) {
     let char = source[point]
     if (char !== '>') {
@@ -379,22 +385,35 @@ const tokenizeDocDeclarations = (start, startChar, source) => {
   }
 
   if (!end) throwError(token.value, point)
-  tokens.push({ type: 'doc-declaration-end', value: '>' })
 
-  return { tokens, point }
+  token.value += '>'
+
+  return token
 }
 
 // 文本分词
 // ><内的字符串
-const tokenizeText = (start, source) => {
+const tokenizeText = (start, source, open_tag) => {
   let token = { type: 'text', value: '' }
+  let isNeedCloser = ['style', 'script'].indexOf(open_tag) >= 0
   for (start; start < source.length; start++) {
     let char = source[start]
-    if (char !== '<') {
-      token.value += char
-      continue
+    if (char === '<') {
+      if (!isNeedCloser) break
+      if (source[start + 1] === '/') {
+        let close_tag = ''
+        for (let i = start + 2; i < source.length; i++) {
+          let c = source[i]
+          if (c !== '>') {
+            close_tag += c
+            continue
+          }
+          break
+        }
+        if (close_tag === open_tag) break
+      }
     }
-    break
+    token.value += char
   }
   return token
 }
